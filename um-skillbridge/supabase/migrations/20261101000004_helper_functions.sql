@@ -2,10 +2,12 @@
 -- UM SkillBridge — Migration 00004: Helper Functions & Triggers
 -- Description: Sets up auth.users lifecycle triggers, student verification logic,
 --              initial wallet grant provisioning, and audit triggers.
+--              All SECURITY DEFINER functions use SET search_path = ''.
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
 -- 1. Siswa email validator function
+--    Uses anchored regex to prevent subdomain-spoofing attacks.
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_valid_siswa_email(email_addr TEXT)
 RETURNS BOOLEAN AS $$
@@ -13,17 +15,20 @@ BEGIN
   IF email_addr IS NULL THEN
     RETURN FALSE;
   END IF;
-  
-  -- Case-insensitive check for @siswa.um.edu.my or subdomains
+
+  -- Anchored case-insensitive regex for @siswa.um.edu.my or subdomains
+  -- Rejects spoofed domains like @evilsiswa.um.edu.my
   RETURN (
-    email_addr ILIKE '%@siswa.um.edu.my' OR
-    email_addr ILIKE '%@%.siswa.um.edu.my'
+    email_addr ~* '^[^@]+@siswa\.um\.edu\.my$' OR
+    email_addr ~* '^[^@]+@[^@]+\.siswa\.um\.edu\.my$'
   );
 END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+$$ LANGUAGE plpgsql IMMUTABLE
+SET search_path = '';
 
 -- ------------------------------------------------------------------------------
 -- 2. Auth Trigger: Provision Profile & Welcome Credit Account on Signup
+--    SECURITY DEFINER with pinned search_path.
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -151,7 +156,8 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = '';
 
 -- Bind trigger to auth.users (executed automatically on Supabase user creation)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -160,9 +166,13 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
+-- Restrict direct EXECUTE: trigger-only, no client invocation needed
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
+
 -- ------------------------------------------------------------------------------
 -- 3. Email Confirmation Sync Trigger
 -- Updates is_verified_student when the user clicks the confirmation link in email.
+-- SECURITY DEFINER with pinned search_path.
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_user_email_confirmed()
 RETURNS TRIGGER AS $$
@@ -189,10 +199,14 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = '';
 
 DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
 CREATE TRIGGER on_auth_user_confirmed
   AFTER UPDATE OF email_confirmed_at ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_user_email_confirmed();
+
+-- Restrict direct EXECUTE: trigger-only, no client invocation needed
+REVOKE ALL ON FUNCTION public.handle_user_email_confirmed() FROM PUBLIC;

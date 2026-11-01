@@ -11,13 +11,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ------------------------------------------------------------------------------
 -- 1. Helper updated_at trigger function
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION set_updated_at()
+CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = '';
 
 -- ------------------------------------------------------------------------------
 -- 2. Profiles (Extends auth.users)
@@ -41,9 +42,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-  -- Strict student domain restriction
+  -- Strict student domain restriction (anchored regex prevents subdomain spoofing)
   CONSTRAINT email_siswa_domain_check CHECK (
-    email ILIKE '%@siswa.um.edu.my' OR email ILIKE '%@%.siswa.um.edu.my'
+    email ~* '^[^@]+@siswa\.um\.edu\.my$'
+    OR email ~* '^[^@]+@[^@]+\.siswa\.um\.edu\.my$'
   )
 );
 
