@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useSyncExternalStore } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -16,22 +16,26 @@ const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
 });
 
+const emptySubscribe = () => () => {};
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   useEffect(() => {
-    setMounted(true);
     const params = new URLSearchParams(window.location.search);
     const qTheme = params.get('theme') as Theme | null;
-    const stored = (qTheme || localStorage.getItem('um-skillbridge-theme')) as Theme;
-    if (stored) {
-      setThemeState(stored);
-      document.documentElement.setAttribute('data-theme', stored);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setThemeState('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
+    const stored = (qTheme || localStorage.getItem('um-skillbridge-theme')) as Theme | null;
+    const targetTheme = (stored === 'light' || stored === 'dark')
+      ? stored
+      : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+    const timer = setTimeout(() => {
+      setThemeState(targetTheme);
+      document.documentElement.setAttribute('data-theme', targetTheme);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const setTheme = useCallback((newTheme: Theme) => {

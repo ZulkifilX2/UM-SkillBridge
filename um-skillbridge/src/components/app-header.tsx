@@ -8,8 +8,9 @@ import { ThemeToggle } from './theme-toggle';
 import { useDemoStore } from '@/lib/store';
 import {
   Coins, Menu, X, ChevronDown, Sparkles,
-  Calendar, Layers, ShieldCheck, Compass, HeartHandshake
+  Calendar, Layers, ShieldCheck, Compass, HeartHandshake, User
 } from 'lucide-react';
+import { signOutAction } from '@/app/auth/actions';
 
 const appNavLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: Layers },
@@ -18,6 +19,7 @@ const appNavLinks = [
   { href: '/sessions', label: 'Sessions', icon: Calendar },
   { href: '/wallet', label: 'Wallet', icon: Coins },
   { href: '/community', label: 'Community', icon: HeartHandshake },
+  { href: '/profile', label: 'Profile', icon: User },
 ];
 
 export function AppHeader() {
@@ -125,6 +127,17 @@ export function AppHeader() {
                   </div>
                 </div>
 
+                <div className="p-1 border-b border-[var(--border-default)] mb-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium"
+                  >
+                    <User size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Manage Profile & Skills</span>
+                  </Link>
+                </div>
+
                 <div className="px-2 py-1 text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                   Switch Demo Persona
                 </div>
@@ -158,16 +171,20 @@ export function AppHeader() {
                 </div>
 
                 <div className="border-t border-[var(--border-default)] mt-1.5 pt-1">
-                  <Link
-                    href="/login"
-                    onClick={() => {
+                  <button
+                    onClick={async () => {
                       logout();
                       setUserDropdownOpen(false);
+                      try {
+                        await signOutAction();
+                      } catch {
+                        // ignore if in demo mode or redirect
+                      }
                     }}
                     className="w-full block px-2 py-1.5 rounded-lg text-left text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 font-medium"
                   >
                     Log Out / Switch Mode
-                  </Link>
+                  </button>
                 </div>
               </div>
             )}
@@ -226,6 +243,23 @@ export function AppHeader() {
               </Link>
             );
           })}
+
+          <div className="pt-2 border-t border-[var(--border-default)]">
+            <button
+              onClick={async () => {
+                logout();
+                setMobileMenuOpen(false);
+                try {
+                  await signOutAction();
+                } catch {
+                  // ignore if in demo mode or redirect
+                }
+              }}
+              className="w-full flex items-center justify-center py-2.5 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+            >
+              Log Out / Switch Mode
+            </button>
+          </div>
         </div>
       )}
     </header>

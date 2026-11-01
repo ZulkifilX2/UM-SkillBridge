@@ -54,6 +54,7 @@ interface DemoStore {
   createDemoMatch: (learnerId: string, mentorId: string, skillId: string, isReciprocal?: boolean, reciprocalSkillId?: string) => Match;
   submitFeedback: (sessionId: string, rating: number, comment?: string, tags?: string[]) => void;
   addBonusCredit: (userId: string, amount: number, reason: string) => void;
+  hydrateFromStorage: () => void;
   resetDemo: () => void;
 }
 
@@ -556,6 +557,13 @@ export const useDemoStore = create<DemoStore>((set, get) => {
       }));
 
       persistState(get());
+    },
+
+    hydrateFromStorage: () => {
+      const saved = loadPersistedState();
+      if (saved) {
+        set(state => ({ ...state, ...saved }));
+      }
     },
 
     resetDemo: () => {
